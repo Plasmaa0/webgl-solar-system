@@ -1,7 +1,7 @@
-import React, {useEffect, useRef} from 'react';
+import React, { useEffect, useRef } from 'react';
 import dat from "dat-gui";
 
-const {mat4, vec3} = require('gl-matrix');
+const { mat4, vec3 } = require('gl-matrix');
 
 
 // Create shader program
@@ -30,61 +30,47 @@ const fragmentShaderSource = `
             }
         `;
 
-class Camera {
-    constructor(x, y, z, rotX, rotY, rotZ, pov, aspectRatio) {
-        this.position = vec3.fromValues(x, y, z);
-        this.pov = pov;
-        this.aspectRatio = aspectRatio;
-        this.rotation = vec3.fromValues(rotX, rotY, rotZ);
-    }
+const get_camera_basis = (camera) => {
+    const towardsVec = vec3.fromValues(
+        Math.cos(camera.rotation.yaw) * Math.cos(camera.rotation.pitch),
+        Math.sin(camera.rotation.pitch),
+        Math.sin(camera.rotation.yaw) * Math.cos(camera.rotation.pitch)
+    )
+    const upVec = vec3.fromValues(0, 1, 0); // Define the up direction (typically [0, 1, 0])
+    const rightVec = vec3.cross(vec3.create(), towardsVec, upVec);
+    const UpVec_no_roll = vec3.cross(vec3.create(), rightVec, towardsVec);
 
-    setX(x) {
-        this.position[0] = x
-    }
+    const rotationMatrix = mat4.create();
+    mat4.fromRotation(rotationMatrix, camera.rotation.roll, towardsVec);
 
-    setY(y) {
-        this.position[1] = y
-    }
+    const newUpVec = vec3.transformMat4(vec3.create(), UpVec_no_roll, rotationMatrix);
 
-    setZ(z) {
-        this.position[2] = z
-    }
+    const normalized_UP = vec3.normalize(vec3.create(), newUpVec);
+    const normalized_RIGHT = vec3.normalize(vec3.create(), rightVec);
+    const normalized_TOWARDS = vec3.normalize(vec3.create(), towardsVec);
 
-    setRotX(x) {
-        this.rotation[0] = x
-    }
+    return [normalized_TOWARDS, normalized_RIGHT, normalized_UP]
 
-    setRotY(y) {
-        this.rotation[1] = y
-    }
+}
+const getProjectionMatrix = (gl, camera) => {
+    let projection = mat4.create()
+    mat4.identity(projection);
+    console.log(gl.drawingBufferWidth, gl.drawingBufferHeight)
+    return mat4.perspective(projection, camera.perspective_fov, gl.drawingBufferWidth / gl.drawingBufferHeight, camera.near, camera.far)
+}
 
-    setRotZ(z) {
-        this.rotation[2] = z
-    }
-
-    getViewMatrix() {
-        const viewMatrix = mat4.create();
-
-        // Apply camera rotation
-        mat4.rotateX(viewMatrix, viewMatrix, this.rotation[0]);
-        mat4.rotateY(viewMatrix, viewMatrix, this.rotation[1]);
-        mat4.rotateZ(viewMatrix, viewMatrix, this.rotation[2]);
-
-        // Apply camera translation
-        const negatedPosition = vec3.create();
-        vec3.negate(negatedPosition, this.position);
-        mat4.translate(viewMatrix, viewMatrix, negatedPosition);
-
-        return viewMatrix;
-    }
-
-    getProjectionMatrix() {
-        const projectionMatrix = mat4.create();
-
-        mat4.perspective(projectionMatrix, this.pov, this.aspectRatio, 0.1, 1000.0);
-
-        return projectionMatrix;
-    }
+const getViewMatrix = (camera) => {
+    let u_view_matrix = mat4.create();
+    const [towards, right, up] = get_camera_basis(camera)
+    mat4.lookAt(u_view_matrix,
+        [camera.position.x, camera.position.y, camera.position.z],
+        [
+            camera.position.x + towards[0],
+            camera.position.y + towards[1],
+            camera.position.z + towards[2]
+        ],
+        up)
+    return u_view_matrix
 }
 
 class Planet {
@@ -152,15 +138,15 @@ class Planet {
         const aProjectionLocation = gl.getUniformLocation(shaderProgram, "uProjection");
 
         // Pass the view and projection matrices to the shader
-        gl.uniformMatrix4fv(aViewLocation, false, camera.getViewMatrix());
-        gl.uniformMatrix4fv(aProjectionLocation, false, camera.getProjectionMatrix());
+        gl.uniformMatrix4fv(aViewLocation, false, getViewMatrix(camera));
+        gl.uniformMatrix4fv(aProjectionLocation, false, getProjectionMatrix(gl, camera));
         // Draw planet
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertices.length / 3);
+        gl.drawArrays(gl.POINTS, 0, vertices.length / 3);
     }
 
     generateSphereVertices() {
-        const latitudeBands = 32;
-        const longitudeBands = 32;
+        const latitudeBands = 64;
+        const longitudeBands = 64;
 
         const vertices = [];
 
@@ -197,38 +183,123 @@ class Planet {
         return colors;
     }
 }
-
-const WebGLCanvas = ({width, height}) => {
+const WebGLCanvas = ({ width, height }) => {
     const canvasRef = useRef(null);
     let animationFrameId = useRef(null);
     let previousTimestamp = useRef(0); // Store the previous timestamp
     let shaderProgram = null;
-    const cameraPositionXSliderRef = useRef(null);
-    const cameraPositionYSliderRef = useRef(null);
-    const cameraPositionZSliderRef = useRef(null);
-    const cameraRotationXSliderRef = useRef(null);
-    const cameraRotationYSliderRef = useRef(null);
-    const cameraRotationZSliderRef = useRef(null);
     let planets = [
         new Planet(10, 0, [1, 1, 0], 0, 0, 0, 0, 10, 0, 0, 0), //sun
-        new Planet(5, 149.6, [0, 1, 0], 23.5, 0, 0, 0, 36, 0, 0, 0),
-        new Planet(5, 149.6, [0, 1, 1], 3.5, 0, 0, 0, 10, 0, 0, 0),
+        new Planet(5, 19.6, [0, 1, 0], 0, 0, 0, 0, 36, 0, 0, 0),
+        new Planet(5, 149.6, [0, 1, 1], 0, 0, 0, 0, 26, 0, 0, 0),
     ];
-    let camera = new Camera(0, 0, 0, 0, 0, 0, Math.PI / 2, height / width);
+    let gui = new dat.GUI();
 
+    let camera = {
+        perspective_fov: 1.5,
+        position: {
+            x: 0,
+            y: 0,
+            z: 0
+        },
+        rotation: {
+            pitch: 0, // тангаж (вверх вниз)
+            yaw: 0, // рысканье (вправо влево)
+            roll: 0 // крен
+        },
+        near: 0.1,
+        far: 1000.0
+    }
+
+    function setup_controls() {
+        const step = 0.1
+        document.addEventListener('keydown', function (event) {
+            let [towards, right, up] = get_camera_basis(camera)
+            vec3.scale(right, right, step)
+            vec3.scale(towards, towards, step)
+            if (event.code == 'KeyW') {
+                camera.position.x += towards[0]
+                camera.position.y += towards[1]
+                camera.position.z += towards[2]
+            }
+            if (event.code == 'KeyA') {
+                camera.position.x -= right[0]
+                camera.position.y -= right[1]
+                camera.position.z -= right[2]
+            }
+            if (event.code == 'KeyS') {
+                camera.position.x -= towards[0]
+                camera.position.y -= towards[1]
+                camera.position.z -= towards[2]
+            }
+            if (event.code == 'KeyD') {
+                camera.position.x += right[0]
+                camera.position.y += right[1]
+                camera.position.z += right[2]
+            }
+
+            if (event.code == 'ArrowLeft') {
+                camera.rotation.yaw -= step
+            }
+            if (event.code == 'ArrowRight') {
+                camera.rotation.yaw += step
+            }
+            if (event.code == 'ArrowUp') {
+                camera.rotation.pitch += step
+            }
+            if (event.code == 'ArrowDown') {
+                camera.rotation.pitch -= step
+            }
+            if (event.key === "e") {
+                camera.rotation.roll += step
+            }
+            if (event.key === "q") {
+                camera.rotation.roll -= step
+            }
+
+            if (event.shiftKey) {
+                camera.position.y -= step
+            }
+            if (event.key === " ") {
+                camera.position.y += step
+            }
+            // gui.updateDisplay();
+        });
+    }
+
+    function setup_gui() {
+        let camera_folder = gui.addFolder('Camera')
+        camera_folder.add(camera, 'perspective_fov', 0.1, Math.PI * 0.8);
+        camera_folder.add(camera, 'near', 0.01, 10.0)
+        camera_folder.add(camera, 'far', 10.0, 1000.0)
+        let camera_translate_folder = camera_folder.addFolder('Translate')
+        camera_translate_folder.add(camera.position, 'x', -5, 5, 0.1)
+        camera_translate_folder.add(camera.position, 'y', -5, 5, 0.1)
+        camera_translate_folder.add(camera.position, 'z', -5, 5, 0.1)
+        let camera_orientation_folder = camera_folder.addFolder('Orientation')
+        camera_orientation_folder.add(camera.rotation, 'pitch', -Math.PI / 2, Math.PI / 2, 0.1)
+        camera_orientation_folder.add(camera.rotation, 'yaw', -Math.PI, Math.PI, 0.1)
+        camera_orientation_folder.add(camera.rotation, 'roll', -Math.PI / 2, Math.PI / 2, 0.1)
+    }
 
     function init(canvas, gl) {
-        var gui = new dat.GUI();
-        gui.add(camera.position, 0, 0,1)
-        gui.add(camera.position, 1, 0,1)
-        gui.add(camera.position, 2, 0,1)
+        setup_gui()
         // Set the canvas size
-        canvas.width = width;
-        canvas.height = height;
+        setup_controls()
+        const dimension = [document.documentElement.clientWidth, document.documentElement.clientHeight];
+
+        canvas.width = dimension[0] * 0.9;
+        canvas.height = dimension[1] * 0.9;
 
         // Set clear color to black
         gl.clearColor(0, 0, 0, 1);
+        gl.enable(gl.DEPTH_TEST)
 
+        // Clear <canvas>
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
         // // Create a buffer object to store circle data
         // const circleBuffer = gl.createBuffer();
 
@@ -256,7 +327,7 @@ const WebGLCanvas = ({width, height}) => {
         }
     }
 
-    function draw(gl) {
+    function draw(gl, camera) {
         for (const planet of planets) {
             planet.draw(gl, shaderProgram, camera)
         }
@@ -280,7 +351,7 @@ const WebGLCanvas = ({width, height}) => {
         // Function to update the canvas
         const updateCanvas = (timestamp) => {
             // Clear the canvas
-            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
             // Draw circles
             currentTime = timestamp;
@@ -288,7 +359,7 @@ const WebGLCanvas = ({width, height}) => {
             previousTimestamp.current = currentTime;
 
             update(deltaTime)
-            draw(gl)
+            draw(gl, camera)
 
             // Request the next frame
             animationFrameId.current = requestAnimationFrame(updateCanvas);
@@ -301,9 +372,8 @@ const WebGLCanvas = ({width, height}) => {
         return () => cancelAnimationFrame(animationFrameId.current);
     }, [width, height]);
 
-
     return <>
-        <canvas ref={canvasRef}/>
+        <canvas ref={canvasRef} />
     </>;
 };
 
