@@ -1,6 +1,7 @@
 import { getProjectionMatrix, getViewMatrix } from './Camera';
 import icomesh from 'icomesh';
 import { SunFragmentShaderSource, SunVertexShaderSource, fragmentShaderSource, vertexShaderSource } from './shaders';
+import { get_camera_basis } from './Camera';
 const { mat4 } = require('gl-matrix');
 
 
@@ -26,6 +27,9 @@ class Planet {
     update(deltaTime) {
         const angleIncrement = (Math.PI * 2) / this.orbitPeriod * deltaTime;
         this.currentAngle += angleIncrement;
+        if (this.currentAngle >= Math.PI * 2) {
+            this.currentAngle -= Math.PI * 2
+        }
 
         this.x = this.centerX + Math.cos(this.currentAngle) * this.radius;
         this.y = this.centerY + Math.sin(this.currentAngle) * Math.sin(this.inclination) * this.radius;
@@ -102,6 +106,7 @@ class Planet {
         const modelMatrix = mat4.create();
 
         mat4.translate(modelMatrix, modelMatrix, [this.x, this.y, this.z]);
+        mat4.scale(modelMatrix, modelMatrix, [this.size, this.size, this.size])
         const modelUniformLocation = gl.getUniformLocation(shaderProgram, "uModel");
         gl.uniformMatrix4fv(modelUniformLocation, false, modelMatrix);
 
@@ -122,13 +127,29 @@ class Planet {
 
             ////
             let lightWorldPositionLocation = gl.getUniformLocation(shaderProgram, "u_lightWorldPosition");
+            // gl.uniform3fv(lightWorldPositionLocation, [camera.position.x, camera.position.y, camera.position.z]);
             gl.uniform3fv(lightWorldPositionLocation, [0, 0, 0]);
+
+
+            let lightDirectionLocation = gl.getUniformLocation(shaderProgram, "u_lightDirection");
+            const [towards, right, up] = get_camera_basis(camera)
+            gl.uniform3fv(lightDirectionLocation, [
+                towards[0],
+                towards[1],
+                towards[2]
+            ]);
+
 
             let cameraWorldPositionLocation = gl.getUniformLocation(shaderProgram, "u_viewWorldPosition");
             gl.uniform3fv(cameraWorldPositionLocation, [camera.position.x, camera.position.y, camera.position.z]);
 
+
             let shininessLocation = gl.getUniformLocation(shaderProgram, "u_shininess");
             gl.uniform1f(shininessLocation, this.shininess);
+
+            let torch_fov_location = gl.getUniformLocation(shaderProgram, "u_torch_fov");
+            // console.log(camera.torch_fov)
+            gl.uniform1f(torch_fov_location, camera.torch_fov);
 
             let worldInverseMatrix = mat4.create()
             mat4.invert(worldInverseMatrix, modelMatrix);

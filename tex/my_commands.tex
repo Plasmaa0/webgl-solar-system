@@ -1,0 +1,190 @@
+% !TeX TS-program = pdflatex
+% !TeX encoding = UTF-8
+% !TeX TXS-program:bibliography = biber
+% !TeX spellcheck = ru_RU-Russian
+\usepackage{pdfpages}
+\usepackage{amsthm}
+\PassOptionsToPackage{urldate=long}{biblatex}
+% следующие 3 строчки нужны для точечек в содержании
+\usepackage{tocloft}
+\renewcommand{\cftpartleader}{\cftdotfill{\cftdotsep}}
+\renewcommand{\cftchapleader}{\cftdotfill{\cftdotsep}}
+
+% шапка в титульнике чтоб лучше стала
+\renewcommand{\titlepageheader}[2]
+{
+	\begin{wrapfigure}[7]{l}{0.14\linewidth}
+		\vspace{3.4mm}
+		\hspace{-8mm}
+		\includegraphics[width=0.89\linewidth]{bmstu-logo}
+	\end{wrapfigure}
+	
+	{
+		\singlespacing \small
+		Министерство науки и высшего образования Российской Федерации \\
+		Федеральное государственное бюджетное образовательное учреждение \\
+		высшего образования \\
+		<<Московский государственный технический университет \\
+		имени Н.~Э.~Баумана \\
+		(национальный исследовательский университет)>> \\
+		(МГТУ им. Н.~Э.~Баумана) \\
+	}
+	
+	\vspace{-4.2mm}
+	\vhrulefill{0.9mm} \\
+	\vspace{-7mm}
+	\vhrulefill{0.2mm} \\
+	\vspace{2.8mm}
+	
+	{
+		\small
+		ФАКУЛЬТЕТ \longunderline{<<#1>>} \\
+		\vspace{3.3mm}
+		КАФЕДРА \longunderline{#2} \\ % вот здесь убрал <<>>, чтобы
+		% можно было подписать (ФН-11) вне кавычек 
+	}
+}
+% Установка исполнителей работы
+\renewcommand{\titlepageauthors}[5]
+{
+	{
+		\renewcommand{\titlepagestudentscontent}{}
+		\maketitlepagestudent{#1}
+		
+		\renewcommand{\titlepageotherscontent}{}
+		\maketitlepageothers{#2}{#3}
+		\maketitlepageothers{Консультант}{#4}
+		\maketitlepageothers{Нормоконтролер}{#5}
+		
+		\small
+		\begin{tabularx}{\textwidth}{@{}>{\hsize=.5\hsize}X>{\hsize=.25\hsize}X>{\hsize=.25\hsize}X@{}}
+			\titlepagestudentscontent
+			
+			\titlepageotherscontent
+		\end{tabularx}
+	}
+}
+
+
+\renewcommand{\maketableofcontents}
+{
+	\setlength{\cftbeforetoctitleskip}{-2em}
+	\setlength{\cftaftertoctitleskip}{0em}
+	\renewcommand\contentsname{
+	\normalsize \centerline{\MakeUppercase{Содержание}}\hfill c.
+	}
+%	\singlespacing
+	\tableofcontents
+}
+
+
+\newif\ifgdeSep
+\newcommand*{\gde}[1]{%
+	\begin{enumerate}[itemindent=\parindent]
+		\gdeSepfalse
+		\item[где]
+		\gdeScan#1\relax \text{.}
+	\end{enumerate}
+}
+\newcommand{\gdeScan}[2]{%
+	\ifx\relax#1\empty
+	\else
+	\ifgdeSep
+	;\item[]\relax
+	\else
+	\gdeSeptrue
+	\fi
+	#1 -- #2\relax
+	\expandafter\gdeScan
+	\fi
+}
+
+\DeclareMathOperator{\Ch}{ch}
+\DeclareMathOperator{\Sh}{sh}
+\DeclareMathOperator{\Arctgh}{arctgh}
+
+\DeclareMathOperator{\Arctg}{arctg}
+
+\newenvironment{gost-itemize}
+{\begin{itemize}[label=---,itemindent=\parindent,leftmargin=0pt]}
+	{\end{itemize}}
+	
+\makeatletter
+\newcommand{\oset}[3][0ex]{%
+	\mathrel{\mathop{#3}\limits^{
+			\vbox to#1{\kern-0\ex@
+				\hbox{$\scriptstyle#2$}\vss}}}}
+\makeatother
+\newcommand*\protivorechie{$\oset{\circ}{\times}$}
+%\newcommand*\protivorechie{$\times^{\kern-0.55em \circ}$}
+
+\newcommand{\lineup}[5]{
+	\newcommand*\lineupothercontent{}
+	
+	\newcommand{\makelineupother}[5]
+	{
+		\foreach \c in {#3} {
+			\gappto\lineupothercontent{#2 &}
+			\gappto\lineupothercontent{\fixunderline{}{40mm}{(Подпись, дата)} \vspace{1.3mm} &}
+			\gappto\lineupothercontent{\fixunderline}
+			\xappto\lineupothercontent{{\c}}
+			\gappto\lineupothercontent{{40mm}{(И.~О.~Фамилия)} \\}
+		}
+		
+		\foreach \s/\g in {#1} {
+			\gappto\lineupothercontent{Исполнитель,\\студент группы \fixunderline}
+			\xappto\lineupothercontent{{\g}}
+			\gappto\lineupothercontent{{25mm}{(Группа)} &}
+			\gappto\lineupothercontent{\fixunderline{}{40mm}{(Подпись, дата)} \vspace{1.3mm} &}
+			\gappto\lineupothercontent{\fixunderline}
+			\xappto\lineupothercontent{{\s}}
+			\gappto\lineupothercontent{{40mm}{(И.~О.~Фамилия)} \\}
+		}
+		
+		\foreach \c in {#5} {
+			\gappto\lineupothercontent{#4 &}
+			\gappto\lineupothercontent{\fixunderline{}{40mm}{(Подпись, дата)} \vspace{1.3mm} &}
+			\gappto\lineupothercontent{\fixunderline}
+			\xappto\lineupothercontent{{\c}}
+			\gappto\lineupothercontent{{40mm}{(И.~О.~Фамилия)} \\}
+		}
+		
+	}
+	
+	\makelineupother{#1}{#2}{#3}{#4}{#5}
+	
+	\centerline{\MakeUppercase{\textbf{Список исполнителей}}}
+	
+	\vspace{14mm}
+	
+	{\small\raggedright \begin{tabularx}{\textwidth}{@{}>{\hsize=.5\hsize}X>{\hsize=.25\hsize}X>{\hsize=.25\hsize}X@{}}
+			\lineupothercontent
+	\end{tabularx}}
+	
+	\pagebreak
+}
+
+\newcommand*{\QED}[1][$\square$]{%
+	\leavevmode\unskip\penalty9999 \hbox{}\nobreak\hfill
+	\quad\hbox{#1}%
+}
+
+\makeatletter
+\newenvironment{sqcases}{%
+	\matrix@check\sqcases\env@sqcases
+}{%
+	\endarray\right.%
+}
+\def\env@sqcases{%
+	\let\@ifnextchar\new@ifnextchar
+	\left\lbrack
+	\def\arraystretch{1.2}%
+	\array{@{}l@{\quad}l@{}}%
+}
+\makeatother
+
+\def\doubleunderline#1{\underline{\underline{#1}}}
+
+\newtheorem{opr}{Опредление}
+
+\newcommand{\eqdef}{\overset{\mathrm{def}}{\equiv\joinrel\equiv}}

@@ -14,9 +14,9 @@ const WebGLCanvas = () => {
     let planets = [
         new Planet(10, 0, [1, 1, 0], 0, 10, 100, [
             new Planet(5, 19.6, [0, 1, 0], 0, 36, 200, [
-                new Planet(1, 5, [1, 0, 1], Math.PI / 2, 1, 5)
+                new Planet(1, 7, [1, 0, 1], Math.PI / 2, 1, 5)
             ]),
-            new Planet(15, 49.6, [0, 1, 1], 0, 26, 10),
+            new Planet(15, 45.6, [0, 1, 1], 0, 26, 10),
         ], true), //sun
     ];
     let gui = new dat.GUI();
@@ -38,7 +38,8 @@ const WebGLCanvas = () => {
             roll: 0 // крен
         },
         near: 0.1,
-        far: 1000.0
+        far: 1000.0,
+        torch_fov: 0.9
     }
 
     function setup_controls() {
@@ -106,6 +107,7 @@ const WebGLCanvas = () => {
         camera_folder.add(camera, 'perspective_fov', 0.1, Math.PI * 0.8).listen();
         camera_folder.add(camera, 'near', 0.01, 10.0).listen();
         camera_folder.add(camera, 'far', 10.0, 1000.0).listen();
+        camera_folder.add(camera, 'torch_fov', 0.05, 1.0).listen();
         let camera_translate_folder = camera_folder.addFolder('Translate')
         camera_translate_folder.add(camera.position, 'x', -100, 100, 0.1).listen();
         camera_translate_folder.add(camera.position, 'y', -100, 100, 0.1).listen();
